@@ -129,8 +129,34 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <ThemeProvider>
+        <StoreProvider>
+          <div className="flex min-h-screen flex-col">
+            <Header />
+            <main className="flex-1">
+              {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+              <Outlet />
+            </main>
+            <Footer />
+          </div>
+          <WhatsAppButton />
+          <Toaster position="top-center" richColors />
+        </StoreProvider>
+      </ThemeProvider>
     </QueryClientProvider>
+  );
+}
+
+function WhatsAppButton() {
+  return (
+    <a
+      href="https://wa.me/919876543210"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Chat on WhatsApp"
+      className="fixed bottom-5 right-5 z-50 grid h-14 w-14 place-items-center rounded-full bg-[#25D366] text-white shadow-luxe transition-transform hover:scale-110"
+    >
+      <MessageCircle className="h-7 w-7" />
+    </a>
   );
 }
