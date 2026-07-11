@@ -84,7 +84,7 @@ function Policy() {
       <p className="text-xs uppercase tracking-[0.3em] text-gold">Legal</p>
       <h1 className="mt-2 font-display text-4xl font-semibold">{policy.title}</h1>
       <div className="mt-8 space-y-5">
-        {policy.body.map((p, i) => (
+        {policy.body.map((p: string, i: number) => (
           <p key={i} className="leading-relaxed text-muted-foreground">
             {p}
           </p>
