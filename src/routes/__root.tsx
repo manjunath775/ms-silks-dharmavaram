@@ -8,9 +8,15 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { MessageCircle } from "lucide-react";
+import { Toaster } from "@/components/ui/sonner";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { ThemeProvider } from "@/lib/theme";
+import { StoreProvider } from "@/lib/store";
+import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 
 function NotFoundComponent() {
   return (
@@ -77,21 +83,31 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "MS Silks Dharmavaram — Premium Handwoven Silk Sarees" },
+      {
+        name: "description",
+        content:
+          "Discover luxury handwoven Dharmavaram silk sarees at MS Silks. Bridal, festival & designer collections in pure silk with authentic gold zari. Free shipping across India.",
+      },
+      { name: "author", content: "MS Silks Dharmavaram" },
+      { property: "og:title", content: "MS Silks Dharmavaram — Premium Handwoven Silk Sarees" },
+      {
+        property: "og:description",
+        content:
+          "Luxury handwoven Dharmavaram silk sarees — bridal, festival & designer collections in pure silk with authentic gold zari.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: appCss,
+        href: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Jost:wght@300;400;500;600&display=swap",
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
   }),
   shellComponent: RootShell,
@@ -119,8 +135,34 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <ThemeProvider>
+        <StoreProvider>
+          <div className="flex min-h-screen flex-col">
+            <Header />
+            <main className="flex-1">
+              {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+              <Outlet />
+            </main>
+            <Footer />
+          </div>
+          <WhatsAppButton />
+          <Toaster position="top-center" richColors />
+        </StoreProvider>
+      </ThemeProvider>
     </QueryClientProvider>
+  );
+}
+
+function WhatsAppButton() {
+  return (
+    <a
+      href="https://wa.me/919876543210"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Chat on WhatsApp"
+      className="fixed bottom-5 right-5 z-50 grid h-14 w-14 place-items-center rounded-full bg-[#25D366] text-white shadow-luxe transition-transform hover:scale-110"
+    >
+      <MessageCircle className="h-7 w-7" />
+    </a>
   );
 }
