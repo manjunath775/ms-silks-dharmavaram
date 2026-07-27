@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { motion } from "motion/react";
-import { CheckCircle2, CreditCard, Landmark, Smartphone, Truck, Wallet } from "lucide-react";
+import { CreditCard, Landmark, Loader2, Smartphone, Truck, Wallet } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { formatINR } from "@/lib/products";
 import { Button } from "@/components/ui/button";
