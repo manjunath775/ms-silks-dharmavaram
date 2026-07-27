@@ -199,9 +199,17 @@ function Checkout() {
             </div>
           </div>
 
-          <Button type="submit" variant="hero" size="lg" className="mt-5 w-full">
-            Place Order
+          <Button type="submit" variant="hero" size="lg" className="mt-5 w-full" disabled={processing}>
+            {processing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing…
+              </>
+            ) : (
+              "Place Order"
+            )}
           </Button>
+
         </div>
       </form>
     </div>
