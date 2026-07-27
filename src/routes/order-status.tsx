@@ -77,7 +77,8 @@ const config: Record<
 function OrderStatus() {
   const { status, orderId, paymentId, amount, reason } = Route.useSearch();
   const navigate = useNavigate();
-  const c = config[status];
+  const c = config[status as Status];
+
   const Icon = c.icon;
 
   const displayOrderId =
