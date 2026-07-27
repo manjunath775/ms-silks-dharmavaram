@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { motion } from "motion/react";
-import { CheckCircle2, CreditCard, Landmark, Smartphone, Truck, Wallet } from "lucide-react";
+
+import { CreditCard, Landmark, Loader2, Smartphone, Truck, Wallet } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { formatINR } from "@/lib/products";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,7 @@ function Checkout() {
   const navigate = useNavigate();
   const [delivery, setDelivery] = useState("standard");
   const [payment, setPayment] = useState("upi");
-  const [placed, setPlaced] = useState(false);
+  const [processing, setProcessing] = useState(false);
 
   const deliveryFee = deliveryOptions.find((d) => d.id === delivery)?.price ?? 0;
   const shipping = cartTotal > 2999 ? 0 : 99;
@@ -47,41 +47,44 @@ function Checkout() {
       toast.error("Your cart is empty");
       return;
     }
-    setPlaced(true);
-    clearCart();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setProcessing(true);
+    toast.loading("Processing your payment…", { id: "pay" });
+
+    // Simulated Razorpay flow — replace with real gateway response.
+    // COD → success immediately; other methods → mostly success, occasional pending/failed.
+    window.setTimeout(() => {
+      toast.dismiss("pay");
+      const orderId = `MS${Math.floor(Math.random() * 900000 + 100000)}`;
+      const paymentId = `pay_${Math.random().toString(36).slice(2, 12)}`;
+
+      let status: "success" | "pending" | "failed" = "success";
+      let reason: string | undefined;
+      if (payment !== "cod") {
+        const roll = Math.random();
+        if (roll < 0.15) {
+          status = "failed";
+          reason = "Payment declined by bank";
+        } else if (roll < 0.3) {
+          status = "pending";
+        }
+      }
+
+      if (status === "success") clearCart();
+      setProcessing(false);
+      navigate({
+        to: "/order-status",
+        search: {
+          status,
+          orderId,
+          paymentId: status === "failed" ? undefined : paymentId,
+          amount: total,
+          reason,
+        },
+      });
+    }, 1200);
   };
 
-  if (placed) {
-    return (
-      <div className="container-luxe py-24 text-center">
-        <motion.div
-          initial={{ scale: 0.7, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "spring", stiffness: 200, damping: 15 }}
-          className="mx-auto grid h-24 w-24 place-items-center rounded-full bg-primary/10 text-primary"
-        >
-          <CheckCircle2 className="h-12 w-12" />
-        </motion.div>
-        <h1 className="mt-6 font-display text-3xl font-semibold sm:text-4xl">Order Confirmed!</h1>
-        <p className="mt-2 text-muted-foreground">
-          Thank you for shopping with MS Silks. Your order #{Math.floor(Math.random() * 90000 + 10000)}{" "}
-          has been placed successfully.
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          A confirmation has been sent to your email. Track it from your dashboard.
-        </p>
-        <div className="mt-8 flex justify-center gap-3">
-          <Button variant="hero" size="lg" onClick={() => navigate({ to: "/account" })}>
-            View Orders
-          </Button>
-          <Button variant="luxeOutline" size="lg" onClick={() => navigate({ to: "/shop" })}>
-            Continue Shopping
-          </Button>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="container-luxe py-8">
@@ -196,9 +199,17 @@ function Checkout() {
             </div>
           </div>
 
-          <Button type="submit" variant="hero" size="lg" className="mt-5 w-full">
-            Place Order
+          <Button type="submit" variant="hero" size="lg" className="mt-5 w-full" disabled={processing}>
+            {processing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing…
+              </>
+            ) : (
+              "Place Order"
+            )}
           </Button>
+
         </div>
       </form>
     </div>
