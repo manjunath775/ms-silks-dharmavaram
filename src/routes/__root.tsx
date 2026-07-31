@@ -94,14 +94,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         property: "og:description",
         content:
-          "Luxury handwoven Dharmavaram silk sarees — bridal, festival & designer collections in pure silk with authentic gold zari.",
+          "Discover luxury handwoven Dharmavaram silk sarees at MS Silks. Bridal, festival & designer collections in pure silk with authentic gold zari. Free shipping across India.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "MS Silks Dharmavaram — Premium Handwoven Silk Sarees" },
+      { name: "twitter:description", content: "Discover luxury handwoven Dharmavaram silk sarees at MS Silks. Bridal, festival & designer collections in pure silk with authentic gold zari. Free shipping across India." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/e8744107-7863-4396-aee2-d6b770ff1bb9" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/e8744107-7863-4396-aee2-d6b770ff1bb9" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
