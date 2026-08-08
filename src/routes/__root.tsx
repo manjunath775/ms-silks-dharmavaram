@@ -159,7 +159,7 @@ function RootComponent() {
 function WhatsAppButton() {
   return (
     <a
-      href="https://wa.me/919876543210"
+      href={WHATSAPP_URL}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat on WhatsApp"
