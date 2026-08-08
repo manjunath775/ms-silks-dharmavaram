@@ -106,7 +106,7 @@ function Contact() {
       <div className="mt-12 overflow-hidden rounded-xl border border-border">
         <iframe
           title="MS Silks Dharmavaram location"
-          src="https://www.google.com/maps?q=Dharmavaram,Andhra+Pradesh&output=embed"
+          src="https://www.google.com/maps?q=Thogata+Street,+Near+Ramalayam+Temple,+Dharmavaram,+Andhra+Pradesh+515671&output=embed"
           className="h-80 w-full"
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
