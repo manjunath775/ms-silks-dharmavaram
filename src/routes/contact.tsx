@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Mail, MapPin, MessageCircle, Phone } from "lucide-react";
+import { MapPin, MessageCircle, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Reveal } from "@/components/Reveal";
+import { PHONE_DISPLAY, STORE_ADDRESS, WHATSAPP_URL } from "@/lib/contact";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/contact")({
