@@ -37,7 +37,7 @@ function Contact() {
       <div className="mt-12 grid gap-8 lg:grid-cols-[1fr_1.2fr]">
         <div className="space-y-4">
           {[
-            { icon: MapPin, title: "Visit Us", lines: ["Silk Weavers Street, Dharmavaram", "Andhra Pradesh 515671"] },
+            { icon: MapPin, title: "Visit Us", lines: ["11/282, Near Ramalayam Temple", "Thogata Street, Dharmavaram", "Andhra Pradesh 515671"] },
             { icon: Phone, title: "Call Us", lines: ["+91 98765 43210", "Mon–Sat, 10am–8pm"] },
             { icon: Mail, title: "Email Us", lines: ["care@mssilks.in", "orders@mssilks.in"] },
           ].map((c) => (
@@ -106,7 +106,7 @@ function Contact() {
       <div className="mt-12 overflow-hidden rounded-xl border border-border">
         <iframe
           title="MS Silks Dharmavaram location"
-          src="https://www.google.com/maps?q=Dharmavaram,Andhra+Pradesh&output=embed"
+          src="https://www.google.com/maps?q=Thogata+Street,+Near+Ramalayam+Temple,+Dharmavaram,+Andhra+Pradesh+515671&output=embed"
           className="h-80 w-full"
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"

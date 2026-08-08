@@ -56,7 +56,7 @@ export function Footer() {
           <ul className="mt-4 space-y-3 text-sm text-muted-foreground">
             <li className="flex items-start gap-2">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
-              Silk Weavers Street, Dharmavaram, Andhra Pradesh 515671
+              11/282, Near Ramalayam Temple, Thogata Street, Dharmavaram, Andhra Pradesh 515671
             </li>
             <li className="flex items-center gap-2">
               <Phone className="h-4 w-4 shrink-0 text-gold" /> +91 98765 43210
