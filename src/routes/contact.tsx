@@ -38,9 +38,9 @@ function Contact() {
       <div className="mt-12 grid gap-8 lg:grid-cols-[1fr_1.2fr]">
         <div className="space-y-4">
           {[
-            { icon: MapPin, title: "Visit Us", lines: ["11/282, Near Ramalayam Temple", "Thogata Street, Dharmavaram", "Andhra Pradesh 515671"] },
-            { icon: Phone, title: "Call Us", lines: ["+91 98765 43210", "Mon–Sat, 10am–8pm"] },
-            { icon: Mail, title: "Email Us", lines: ["care@mssilks.in", "orders@mssilks.in"] },
+            { icon: MapPin, title: "Visit Us", lines: STORE_ADDRESS.split(", ").reduce<string[]>((acc, part, i) => { const idx = Math.floor(i / 2); acc[idx] = acc[idx] ? `${acc[idx]}, ${part}` : part; return acc; }, []) },
+            { icon: Phone, title: "Call Us", lines: [PHONE_DISPLAY, "Mon–Sat, 10am–8pm"] },
+            { icon: MessageCircle, title: "WhatsApp Us", lines: [PHONE_DISPLAY, "Quick replies on orders & enquiries"] },
           ].map((c) => (
             <Reveal key={c.title}>
               <div className="flex items-start gap-4 rounded-xl border border-border bg-card p-5">
