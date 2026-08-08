@@ -84,7 +84,7 @@ function Account() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <FieldRow label="Full Name" value="Aarohi Sharma" />
                 <FieldRow label="Email" value="aarohi@example.com" />
-                <FieldRow label="Phone" value="+91 98765 43210" />
+                <FieldRow label="Phone" value="+91 90599 88913" />
                 <FieldRow label="Gender" value="Female" />
               </div>
               <Button variant="hero" className="mt-6">

@@ -15,10 +15,10 @@ export const Route = createFileRoute("/contact")({
       {
         name: "description",
         content:
-          "Get in touch with MS Silks Dharmavaram. Visit our store, call, email or message us on WhatsApp for saree enquiries and custom orders.",
+          "Get in touch with MS Silks Dharmavaram. Visit our store, call or message us on WhatsApp for saree enquiries and custom orders.",
       },
       { property: "og:title", content: "Contact MS Silks Dharmavaram" },
-      { property: "og:description", content: "Reach us by phone, email or WhatsApp." },
+      { property: "og:description", content: "Reach us by phone or WhatsApp." },
     ],
   }),
   component: Contact,
