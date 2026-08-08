@@ -17,6 +17,7 @@ import { ThemeProvider } from "@/lib/theme";
 import { StoreProvider } from "@/lib/store";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { WHATSAPP_URL } from "@/lib/contact";
 
 function NotFoundComponent() {
   return (
@@ -159,7 +160,7 @@ function RootComponent() {
 function WhatsAppButton() {
   return (
     <a
-      href="https://wa.me/919876543210"
+      href={WHATSAPP_URL}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat on WhatsApp"

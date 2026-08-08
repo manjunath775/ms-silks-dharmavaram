@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { Facebook, Instagram, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
+import { Instagram, MapPin, MessageCircle, Phone } from "lucide-react";
+import { INSTAGRAM_URL, PHONE_DISPLAY, STORE_ADDRESS, WHATSAPP_URL } from "@/lib/contact";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -16,13 +17,14 @@ export function Footer() {
           </p>
           <div className="mt-5 flex gap-2">
             {[
-              { icon: Instagram, label: "Instagram" },
-              { icon: Facebook, label: "Facebook" },
-              { icon: MessageCircle, label: "WhatsApp" },
+              { icon: Instagram, label: "Instagram", href: INSTAGRAM_URL },
+              { icon: MessageCircle, label: "WhatsApp", href: WHATSAPP_URL },
             ].map((s) => (
               <a
                 key={s.label}
-                href="#"
+                href={s.href}
+                target="_blank"
+                rel="noopener noreferrer"
                 aria-label={s.label}
                 className="grid h-10 w-10 place-items-center rounded-full border border-border bg-card text-foreground transition-colors hover:border-gold hover:text-primary"
               >
@@ -56,13 +58,13 @@ export function Footer() {
           <ul className="mt-4 space-y-3 text-sm text-muted-foreground">
             <li className="flex items-start gap-2">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
-              11/282, Near Ramalayam Temple, Thogata Street, Dharmavaram, Andhra Pradesh 515671
+              {STORE_ADDRESS}
             </li>
             <li className="flex items-center gap-2">
-              <Phone className="h-4 w-4 shrink-0 text-gold" /> +91 98765 43210
-            </li>
-            <li className="flex items-center gap-2">
-              <Mail className="h-4 w-4 shrink-0 text-gold" /> care@mssilks.in
+              <Phone className="h-4 w-4 shrink-0 text-gold" />
+              <a href={`tel:${PHONE_DISPLAY.replace(/\s/g, "")}`} className="hover:text-primary">
+                {PHONE_DISPLAY}
+              </a>
             </li>
           </ul>
         </div>

@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Mail, MapPin, MessageCircle, Phone } from "lucide-react";
+import { MapPin, MessageCircle, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Reveal } from "@/components/Reveal";
+import { PHONE_DISPLAY, STORE_ADDRESS, WHATSAPP_URL } from "@/lib/contact";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/contact")({
@@ -14,10 +15,10 @@ export const Route = createFileRoute("/contact")({
       {
         name: "description",
         content:
-          "Get in touch with MS Silks Dharmavaram. Visit our store, call, email or message us on WhatsApp for saree enquiries and custom orders.",
+          "Get in touch with MS Silks Dharmavaram. Visit our store, call or message us on WhatsApp for saree enquiries and custom orders.",
       },
       { property: "og:title", content: "Contact MS Silks Dharmavaram" },
-      { property: "og:description", content: "Reach us by phone, email or WhatsApp." },
+      { property: "og:description", content: "Reach us by phone or WhatsApp." },
     ],
   }),
   component: Contact,
@@ -37,9 +38,9 @@ function Contact() {
       <div className="mt-12 grid gap-8 lg:grid-cols-[1fr_1.2fr]">
         <div className="space-y-4">
           {[
-            { icon: MapPin, title: "Visit Us", lines: ["11/282, Near Ramalayam Temple", "Thogata Street, Dharmavaram", "Andhra Pradesh 515671"] },
-            { icon: Phone, title: "Call Us", lines: ["+91 98765 43210", "Mon–Sat, 10am–8pm"] },
-            { icon: Mail, title: "Email Us", lines: ["care@mssilks.in", "orders@mssilks.in"] },
+            { icon: MapPin, title: "Visit Us", lines: STORE_ADDRESS.split(", ").reduce<string[]>((acc, part, i) => { const idx = Math.floor(i / 2); acc[idx] = acc[idx] ? `${acc[idx]}, ${part}` : part; return acc; }, []) },
+            { icon: Phone, title: "Call Us", lines: [PHONE_DISPLAY, "Mon–Sat, 10am–8pm"] },
+            { icon: MessageCircle, title: "WhatsApp Us", lines: [PHONE_DISPLAY, "Quick replies on orders & enquiries"] },
           ].map((c) => (
             <Reveal key={c.title}>
               <div className="flex items-start gap-4 rounded-xl border border-border bg-card p-5">
@@ -63,7 +64,7 @@ function Contact() {
             size="lg"
             className="w-full"
           >
-            <a href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer">
+            <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer">
               <MessageCircle className="h-4 w-4" /> Chat on WhatsApp
             </a>
           </Button>
