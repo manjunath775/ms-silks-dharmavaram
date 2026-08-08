@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { Facebook, Instagram, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
+import { Instagram, MapPin, MessageCircle, Phone } from "lucide-react";
+import { INSTAGRAM_URL, PHONE_DISPLAY, STORE_ADDRESS, WHATSAPP_URL } from "@/lib/contact";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
