@@ -17,13 +17,14 @@ export function Footer() {
           </p>
           <div className="mt-5 flex gap-2">
             {[
-              { icon: Instagram, label: "Instagram" },
-              { icon: Facebook, label: "Facebook" },
-              { icon: MessageCircle, label: "WhatsApp" },
+              { icon: Instagram, label: "Instagram", href: INSTAGRAM_URL },
+              { icon: MessageCircle, label: "WhatsApp", href: WHATSAPP_URL },
             ].map((s) => (
               <a
                 key={s.label}
-                href="#"
+                href={s.href}
+                target="_blank"
+                rel="noopener noreferrer"
                 aria-label={s.label}
                 className="grid h-10 w-10 place-items-center rounded-full border border-border bg-card text-foreground transition-colors hover:border-gold hover:text-primary"
               >
