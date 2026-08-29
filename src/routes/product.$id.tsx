@@ -1,20 +1,22 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import {
   Check,
   Heart,
+  MessageCircle,
   Minus,
   Plus,
   RotateCcw,
   Share2,
   ShieldCheck,
-  ShoppingBag,
   Star,
   Truck,
 } from "lucide-react";
-import { getProduct, products, formatINR } from "@/lib/products";
+import { fetchApprovedReviews, fetchProductBySlug, fetchProducts, formatINR } from "@/lib/db";
 import { useStore } from "@/lib/store";
+import { useStoreSettings } from "@/lib/settings";
 import { ProductCard } from "@/components/ProductCard";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,18 +24,23 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/product/$id")({
-  head: ({ params }) => {
-    const p = getProduct(params.id);
-    return {
-      meta: [
-        { title: p ? `${p.name} — MS Silks Dharmavaram` : "Saree — MS Silks" },
-        { name: "description", content: p?.description ?? "Premium handloom silk saree." },
-        { property: "og:title", content: p?.name ?? "MS Silks" },
-        { property: "og:description", content: p?.description ?? "" },
-        ...(p ? [{ property: "og:image", content: p.images[0] }] : []),
-      ],
-    };
-  },
+  head: () => ({
+    meta: [
+      { title: "Silk Saree Details — MS Silks Dharmavaram" },
+      {
+        name: "description",
+        content:
+          "View full details, photos, fabric, colour and price of this handloom silk saree from MS Silks Dharmavaram, and order instantly on WhatsApp.",
+      },
+      { property: "og:title", content: "Silk Saree Details — MS Silks Dharmavaram" },
+      {
+        property: "og:description",
+        content: "Handloom silk saree from MS Silks Dharmavaram — order instantly on WhatsApp.",
+      },
+      { property: "og:type", content: "product" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: ProductDetail,
   notFoundComponent: () => (
     <div className="container-luxe py-24 text-center">
@@ -44,31 +51,74 @@ export const Route = createFileRoute("/product/$id")({
 
 function ProductDetail() {
   const { id } = Route.useParams();
-  const product = getProduct(id);
-  const navigate = useNavigate();
-  const { addToCart, toggleWishlist, isWishlisted } = useStore();
+  const settings = useStoreSettings();
+  const { toggleWishlist, isWishlisted } = useStore();
   const [activeImg, setActiveImg] = useState(0);
   const [qty, setQty] = useState(1);
   const [zoom, setZoom] = useState({ x: 50, y: 50, on: false });
 
+  const { data: product, isLoading } = useQuery({
+    queryKey: ["product", id],
+    queryFn: () => fetchProductBySlug(id),
+  });
+  const { data: all = [] } = useQuery({
+    queryKey: ["products", "active"],
+    queryFn: () => fetchProducts({ activeOnly: true }),
+    staleTime: 60_000,
+  });
+  const { data: reviews = [] } = useQuery({
+    queryKey: ["reviews", product?.id],
+    queryFn: () => fetchApprovedReviews(product!.id),
+    enabled: Boolean(product?.id),
+  });
+
+  const relatedFinal = useMemo(() => {
+    if (!product) return [];
+    const same = all.filter((p) => p.id !== product.id && p.color === product.color);
+    return (same.length ? same : all.filter((p) => p.id !== product.id)).slice(0, 4);
+  }, [all, product]);
+
+  if (isLoading) {
+    return (
+      <div className="container-luxe grid gap-10 py-12 lg:grid-cols-2">
+        <div className="aspect-[3/4] animate-pulse rounded-xl bg-muted" />
+        <div className="space-y-4">
+          <div className="h-8 w-3/4 animate-pulse rounded bg-muted" />
+          <div className="h-6 w-1/3 animate-pulse rounded bg-muted" />
+          <div className="h-24 w-full animate-pulse rounded bg-muted" />
+        </div>
+      </div>
+    );
+  }
+
   if (!product) {
-    return <div className="container-luxe py-24 text-center">Product not found.</div>;
+    return (
+      <div className="container-luxe py-24 text-center">
+        <h1 className="font-display text-2xl font-semibold">Saree not found</h1>
+        <p className="mt-2 text-muted-foreground">This saree may have been removed.</p>
+        <Button variant="hero" className="mt-6" asChild>
+          <Link to="/shop">Browse all sarees</Link>
+        </Button>
+      </div>
+    );
   }
 
   const wished = isWishlisted(product.id);
-  const discount = Math.round(((product.price - product.offerPrice) / product.price) * 100);
-  const related = products.filter((p) => p.id !== product.id && p.color === product.color).slice(0, 4);
-  const relatedFinal = related.length ? related : products.filter((p) => p.id !== product.id).slice(0, 4);
+  const discount =
+    product.price > product.offerPrice
+      ? Math.round(((product.price - product.offerPrice) / product.price) * 100)
+      : 0;
+  const code = product.sku ?? product.slug;
 
-  const specs = [
-    ["Fabric", product.fabric],
-    ["Colour", product.color],
+  const specs: [string, string][] = [
+    ["Fabric", product.fabric || "—"],
+    ["Colour", product.color || "—"],
     ["Category", product.category],
-    ["Occasion", product.occasion],
-    ["Saree Length", product.sareeLength],
-    ["Blouse", product.blouse],
+    ["Occasion", product.occasion || "—"],
+    ["Saree Length", product.sareeLength || "—"],
+    ["Blouse", product.blouseIncluded ? `Included${product.blouseLength ? ` (${product.blouseLength})` : ""}` : "Not included"],
+    ["Border", product.borderType || "—"],
     ["Wash Care", "Dry clean only"],
-    ["Weave", "Handloom, pure zari"],
   ];
 
   const share = async () => {
@@ -84,6 +134,12 @@ function ProductDetail() {
       toast.success("Link copied to clipboard");
     }
   };
+
+  const orderHref = settings.orderUrl({
+    name: `${product.name} × ${qty}`,
+    price: product.offerPrice * qty,
+    code,
+  });
 
   return (
     <div className="container-luxe py-8">
@@ -111,7 +167,11 @@ function ProductDetail() {
                   activeImg === i ? "border-gold" : "border-transparent",
                 )}
               >
-                <img src={img} alt={`${product.name} view ${i + 1}`} className="h-full w-full object-cover" />
+                <img
+                  src={img}
+                  alt={`${product.name} view ${i + 1}`}
+                  className="h-full w-full object-cover"
+                />
               </button>
             ))}
           </div>
@@ -128,8 +188,8 @@ function ProductDetail() {
             onMouseLeave={() => setZoom((z) => ({ ...z, on: false }))}
           >
             <img
-              src={product.images[activeImg]}
-              alt={product.name}
+              src={product.images[Math.min(activeImg, product.images.length - 1)]}
+              alt={`${product.name} — ${product.fabric || "silk"} saree`}
               className="aspect-[3/4] w-full object-cover transition-transform duration-200"
               style={{
                 transform: zoom.on ? "scale(1.8)" : "scale(1)",
@@ -150,26 +210,37 @@ function ProductDetail() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">{product.fabric}</p>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">
+            {product.fabric || product.category}
+          </p>
           <h1 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">{product.name}</h1>
           <div className="mt-3 flex items-center gap-2 text-sm">
             <span className="flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5">
               <Star className="h-3.5 w-3.5 fill-gold text-gold" />
-              {product.rating.toFixed(1)}
+              {product.rating ? product.rating.toFixed(1) : "New"}
             </span>
             <span className="text-muted-foreground">{product.reviews} reviews</span>
+            <span className="ml-auto font-mono text-xs text-muted-foreground">{code}</span>
           </div>
 
           <div className="mt-5 flex items-end gap-3">
             <span className="font-display text-3xl font-semibold text-primary">
               {formatINR(product.offerPrice)}
             </span>
-            <span className="text-lg text-muted-foreground line-through">{formatINR(product.price)}</span>
-            {discount > 0 && <span className="pb-1 text-sm font-medium text-gold">Save {discount}%</span>}
+            {product.price > product.offerPrice && (
+              <span className="text-lg text-muted-foreground line-through">
+                {formatINR(product.price)}
+              </span>
+            )}
+            {discount > 0 && (
+              <span className="pb-1 text-sm font-medium text-gold">Save {discount}%</span>
+            )}
           </div>
           <p className="mt-1 text-xs text-muted-foreground">Inclusive of all taxes</p>
 
-          <p className="mt-5 text-sm leading-relaxed text-muted-foreground">{product.description}</p>
+          <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
+            {product.description || product.shortDescription}
+          </p>
 
           <div className="mt-5">
             {product.stock > 0 ? (
@@ -223,35 +294,27 @@ function ProductDetail() {
             </Button>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Button
-              variant="luxeOutline"
-              size="lg"
-              disabled={product.stock === 0}
-              onClick={() => {
-                addToCart(product, qty);
-                toast.success("Added to cart");
-              }}
-            >
-              <ShoppingBag className="h-4 w-4" /> Add to Cart
-            </Button>
-            <Button
-              variant="hero"
-              size="lg"
-              disabled={product.stock === 0}
-              onClick={() => {
-                addToCart(product, qty);
-                navigate({ to: "/checkout" });
-              }}
-            >
-              Buy Now
+          <div className="mt-4 grid grid-cols-1 gap-3">
+            <Button variant="hero" size="lg" disabled={product.stock === 0} asChild={product.stock > 0}>
+              {product.stock > 0 ? (
+                <a
+                  href={orderHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Order ${product.name} on WhatsApp`}
+                >
+                  <MessageCircle className="h-4 w-4" /> Order on WhatsApp
+                </a>
+              ) : (
+                <span>Currently Unavailable</span>
+              )}
             </Button>
           </div>
 
           {/* Assurance */}
           <div className="mt-6 grid grid-cols-1 gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-3">
             {[
-              { icon: Truck, t: "Free Delivery", d: "3–6 business days" },
+              { icon: Truck, t: "Fast Delivery", d: "3–6 business days" },
               { icon: RotateCcw, t: "7-Day Returns", d: "Easy & hassle-free" },
               { icon: ShieldCheck, t: "Silk Mark", d: "100% authentic" },
             ].map((a) => (
@@ -273,7 +336,7 @@ function ProductDetail() {
           <TabsList>
             <TabsTrigger value="specs">Specifications</TabsTrigger>
             <TabsTrigger value="delivery">Delivery & Returns</TabsTrigger>
-            <TabsTrigger value="reviews">Reviews ({product.reviews})</TabsTrigger>
+            <TabsTrigger value="reviews">Reviews ({reviews.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="specs" className="mt-6">
@@ -287,50 +350,61 @@ function ProductDetail() {
             </div>
           </TabsContent>
 
-          <TabsContent value="delivery" className="mt-6 max-w-2xl space-y-3 text-sm text-muted-foreground">
+          <TabsContent
+            value="delivery"
+            className="mt-6 max-w-2xl space-y-3 text-sm text-muted-foreground"
+          >
             <p>
               <strong className="text-foreground">Estimated delivery:</strong> 3–6 business days across
-              India. Orders above ₹2,999 ship free; a flat ₹99 applies below that.
+              India, shipped from our Dharmavaram store.
             </p>
             <p>
-              <strong className="text-foreground">Returns:</strong> Enjoy a 7-day return window from
-              delivery. The saree must be unused with tags intact. Refunds are processed within 5–7 days.
+              <strong className="text-foreground">Returns:</strong> 7-day return window from delivery.
+              The saree must be unused with tags intact.
             </p>
             <p>
-              <strong className="text-foreground">Order tracking:</strong> Track your order anytime from
-              your account dashboard.
+              <strong className="text-foreground">Questions?</strong> Message us on WhatsApp at{" "}
+              {settings.phone}.
             </p>
           </TabsContent>
 
           <TabsContent value="reviews" className="mt-6 max-w-2xl space-y-5">
-            {[
-              { n: "Deepa K.", t: "Absolutely gorgeous! The silk quality is top notch." },
-              { n: "Ramya S.", t: "Perfect for my sister's wedding. Got so many compliments." },
-              { n: "Meera P.", t: "Colour is exactly as shown. Very happy with the purchase." },
-            ].map((r) => (
-              <div key={r.n} className="rounded-lg border border-border bg-card p-4">
-                <div className="flex items-center gap-1 text-gold">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} className="h-4 w-4 fill-gold" />
-                  ))}
+            {reviews.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No reviews yet for this saree. Be the first to share your experience with us on WhatsApp.
+              </p>
+            ) : (
+              reviews.map((r) => (
+                <div key={r.id} className="rounded-lg border border-border bg-card p-4">
+                  <div className="flex items-center gap-1 text-gold">
+                    {Array.from({ length: r.rating }).map((_, i) => (
+                      <Star key={i} className="h-4 w-4 fill-gold" />
+                    ))}
+                  </div>
+                  {r.title && <p className="mt-2 text-sm font-medium">{r.title}</p>}
+                  {r.body && <p className="mt-1 text-sm">{r.body}</p>}
+                  <p className="mt-1 text-xs font-medium text-muted-foreground">
+                    {r.customer_name ?? "Customer"}
+                    {r.is_verified_purchase ? " · Verified buyer" : ""}
+                  </p>
                 </div>
-                <p className="mt-2 text-sm">{r.t}</p>
-                <p className="mt-1 text-xs font-medium text-muted-foreground">{r.n} · Verified buyer</p>
-              </div>
-            ))}
+              ))
+            )}
           </TabsContent>
         </Tabs>
       </div>
 
       {/* Related */}
-      <section className="mt-16">
-        <h2 className="font-display text-2xl font-semibold">You May Also Like</h2>
-        <div className="mt-6 grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-4">
-          {relatedFinal.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
-      </section>
+      {relatedFinal.length > 0 && (
+        <section className="mt-16">
+          <h2 className="font-display text-2xl font-semibold">You May Also Like</h2>
+          <div className="mt-6 grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-4">
+            {relatedFinal.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
