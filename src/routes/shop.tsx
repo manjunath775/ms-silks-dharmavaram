@@ -1,14 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { SlidersHorizontal, X } from "lucide-react";
-import {
-  products,
-  colors,
-  fabrics,
-  occasions,
-  productCategories,
-  formatINR,
-} from "@/lib/products";
+import { fetchProducts, formatINR } from "@/lib/db";
 import { ProductCard } from "@/components/ProductCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,42 +32,70 @@ export const Route = createFileRoute("/shop")({
         content:
           "Browse pure handloom silk sarees — filter by price, colour, fabric, occasion and category. Bridal, festival and designer weaves.",
       },
+      { property: "og:title", content: "Shop Silk Sarees — MS Silks Dharmavaram" },
+      {
+        property: "og:description",
+        content: "Pure handloom silk sarees from Dharmavaram — bridal, festival and designer weaves.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Shop,
 });
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 9;
+const MAX_PRICE = 50000;
+
+export const productsQuery = {
+  queryKey: ["products", "active"] as const,
+  queryFn: () => fetchProducts({ activeOnly: true }),
+  staleTime: 60_000,
+};
 
 function Shop() {
   const { q, collection } = Route.useSearch();
+  const { data: products = [], isLoading, error } = useQuery(productsQuery);
   const [search, setSearch] = useState(q ?? "");
   const [selColors, setSelColors] = useState<string[]>([]);
   const [selFabrics, setSelFabrics] = useState<string[]>([]);
   const [selCats, setSelCats] = useState<string[]>([]);
   const [selOccasions, setSelOccasions] = useState<string[]>([]);
-  const [price, setPrice] = useState<number[]>([30000]);
+  const [price, setPrice] = useState<number[]>([MAX_PRICE]);
   const [inStock, setInStock] = useState(false);
   const [sort, setSort] = useState("featured");
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
+
+  const uniq = (vals: (string | null | undefined)[]) =>
+    Array.from(new Set(vals.filter((v): v is string => Boolean(v && v.trim())))).sort();
+
+  const colors = useMemo(() => uniq(products.map((p) => p.color)), [products]);
+  const fabrics = useMemo(() => uniq(products.map((p) => p.fabric)), [products]);
+  const cats = useMemo(() => uniq(products.map((p) => p.category)), [products]);
+  const occasions = useMemo(() => uniq(products.map((p) => p.occasion)), [products]);
 
   const toggle = (arr: string[], set: (v: string[]) => void, val: string) =>
     set(arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val]);
 
   const filtered = useMemo(() => {
     let list = [...products];
-    if (collection === "bridal") list = list.filter((p) => p.bridal);
-    if (collection === "festival") list = list.filter((p) => p.festival);
-    if (collection === "kanjivaram") list = list.filter((p) => p.fabric.includes("Kanjivaram"));
-    if (search.trim()) {
-      const s = search.toLowerCase();
+    if (collection) {
+      const c = collection.toLowerCase();
       list = list.filter(
         (p) =>
-          p.name.toLowerCase().includes(s) ||
-          p.fabric.toLowerCase().includes(s) ||
-          p.color.toLowerCase().includes(s) ||
-          p.category.toLowerCase().includes(s),
+          p.tags.some((t) => t.toLowerCase() === c) ||
+          p.category.toLowerCase().includes(c) ||
+          (p.fabric ?? "").toLowerCase().includes(c) ||
+          (p.occasion ?? "").toLowerCase().includes(c),
+      );
+    }
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      list = list.filter((p) =>
+        [p.name, p.fabric, p.color, p.category, p.occasion].some((f) =>
+          (f ?? "").toLowerCase().includes(s),
+        ),
       );
     }
     if (selColors.length) list = list.filter((p) => selColors.includes(p.color));
@@ -83,11 +105,12 @@ function Shop() {
     list = list.filter((p) => p.offerPrice <= price[0]);
     if (inStock) list = list.filter((p) => p.stock > 0);
 
+    if (sort === "featured") list.sort((a, b) => Number(b.featured) - Number(a.featured));
     if (sort === "price-low") list.sort((a, b) => a.offerPrice - b.offerPrice);
     if (sort === "price-high") list.sort((a, b) => b.offerPrice - a.offerPrice);
     if (sort === "rating") list.sort((a, b) => b.rating - a.rating);
     return list;
-  }, [collection, search, selColors, selFabrics, selCats, selOccasions, price, inStock, sort]);
+  }, [products, collection, search, selColors, selFabrics, selCats, selOccasions, price, inStock, sort]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const current = Math.min(page, totalPages);
@@ -98,7 +121,7 @@ function Shop() {
     setSelFabrics([]);
     setSelCats([]);
     setSelOccasions([]);
-    setPrice([30000]);
+    setPrice([MAX_PRICE]);
     setInStock(false);
     setSearch("");
     setPage(1);
@@ -114,25 +137,26 @@ function Shop() {
     options: string[];
     sel: string[];
     set: (v: string[]) => void;
-  }) => (
-    <div className="border-b border-border pb-5">
-      <h4 className="mb-3 text-sm font-semibold">{title}</h4>
-      <div className="space-y-2.5">
-        {options.map((o) => (
-          <label key={o} className="flex cursor-pointer items-center gap-2.5 text-sm">
-            <Checkbox
-              checked={sel.includes(o)}
-              onCheckedChange={() => {
-                toggle(sel, set, o);
-                setPage(1);
-              }}
-            />
-            <span className="text-muted-foreground">{o}</span>
-          </label>
-        ))}
+  }) =>
+    options.length === 0 ? null : (
+      <div className="border-b border-border pb-5">
+        <h4 className="mb-3 text-sm font-semibold">{title}</h4>
+        <div className="space-y-2.5">
+          {options.map((o) => (
+            <label key={o} className="flex cursor-pointer items-center gap-2.5 text-sm">
+              <Checkbox
+                checked={sel.includes(o)}
+                onCheckedChange={() => {
+                  toggle(sel, set, o);
+                  setPage(1);
+                }}
+              />
+              <span className="text-muted-foreground">{o}</span>
+            </label>
+          ))}
+        </div>
       </div>
-    </div>
-  );
+    );
 
   const FilterPanel = (
     <div className="space-y-5">
@@ -151,13 +175,13 @@ function Shop() {
             setPrice(v);
             setPage(1);
           }}
-          min={5000}
-          max={30000}
+          min={1000}
+          max={MAX_PRICE}
           step={1000}
         />
       </div>
 
-      <FilterGroup title="Category" options={productCategories} sel={selCats} set={setSelCats} />
+      <FilterGroup title="Category" options={cats} sel={selCats} set={setSelCats} />
       <FilterGroup title="Colour" options={colors} sel={selColors} set={setSelColors} />
       <FilterGroup title="Fabric" options={fabrics} sel={selFabrics} set={setSelFabrics} />
       <FilterGroup title="Occasion" options={occasions} sel={selOccasions} set={setSelOccasions} />
@@ -195,11 +219,7 @@ function Shop() {
           className="sm:max-w-xs"
         />
         <div className="flex items-center gap-3 sm:ml-auto">
-          <Button
-            variant="outline"
-            className="lg:hidden"
-            onClick={() => setShowFilters(true)}
-          >
+          <Button variant="outline" className="lg:hidden" onClick={() => setShowFilters(true)}>
             <SlidersHorizontal className="h-4 w-4" /> Filters
           </Button>
           <Select value={sort} onValueChange={setSort}>
@@ -222,38 +242,59 @@ function Shop() {
         </aside>
 
         <div>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Showing {pageItems.length} of {filtered.length} sarees
-          </p>
-          {pageItems.length === 0 ? (
+          {isLoading ? (
+            <div className="grid grid-cols-2 gap-4 md:gap-5 xl:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="animate-pulse rounded-lg border border-border bg-card">
+                  <div className="aspect-[3/4] w-full rounded-t-lg bg-muted" />
+                  <div className="space-y-2 p-4">
+                    <div className="h-3 w-1/3 rounded bg-muted" />
+                    <div className="h-4 w-3/4 rounded bg-muted" />
+                    <div className="h-4 w-1/2 rounded bg-muted" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : error ? (
             <div className="rounded-xl border border-dashed border-border py-20 text-center text-muted-foreground">
-              No sarees match your filters.
+              Could not load sarees right now. Please refresh the page.
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4 md:gap-5 xl:grid-cols-3">
-              {pageItems.map((p) => (
-                <ProductCard key={p.id} product={p} />
-              ))}
-            </div>
-          )}
+            <>
+              <p className="mb-4 text-sm text-muted-foreground">
+                Showing {pageItems.length} of {filtered.length} sarees
+              </p>
+              {pageItems.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border py-20 text-center text-muted-foreground">
+                  No sarees match your filters.
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4 md:gap-5 xl:grid-cols-3">
+                  {pageItems.map((p) => (
+                    <ProductCard key={p.id} product={p} />
+                  ))}
+                </div>
+              )}
 
-          {totalPages > 1 && (
-            <div className="mt-10 flex justify-center gap-2">
-              {Array.from({ length: totalPages }).map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setPage(i + 1)}
-                  className={cn(
-                    "grid h-9 w-9 place-items-center rounded-md border text-sm transition-colors",
-                    current === i + 1
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border hover:border-gold",
-                  )}
-                >
-                  {i + 1}
-                </button>
-              ))}
-            </div>
+              {totalPages > 1 && (
+                <div className="mt-10 flex justify-center gap-2">
+                  {Array.from({ length: totalPages }).map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setPage(i + 1)}
+                      className={cn(
+                        "grid h-9 w-9 place-items-center rounded-md border text-sm transition-colors",
+                        current === i + 1
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border hover:border-gold",
+                      )}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
