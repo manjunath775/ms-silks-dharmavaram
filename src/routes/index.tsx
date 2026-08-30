@@ -50,8 +50,16 @@ const reviews = [
 ];
 
 function Home() {
-  const bestsellers = products.filter((p) => p.bestseller).slice(0, 4);
+  const { data } = useQuery({
+    queryKey: ["products", "home"],
+    queryFn: () => fetchProducts({ activeOnly: true }),
+    staleTime: 60_000,
+  });
+  const products: Product[] = data ?? [];
+  const featuredList = products.filter((p) => p.featured);
+  const bestsellers = (featuredList.length ? featuredList : products).slice(0, 4);
   const trending = products.slice(0, 8);
+
 
   return (
     <div>
