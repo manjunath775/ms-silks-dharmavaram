@@ -13,7 +13,10 @@ import {
 import heroSaree from "@/assets/hero-saree.jpg";
 import bridalBanner from "@/assets/bridal-banner.jpg";
 import festivalBanner from "@/assets/festival-banner.jpg";
-import { products, categories } from "@/lib/products";
+import { useQuery } from "@tanstack/react-query";
+import { categories } from "@/lib/products";
+import { fetchProducts, type Product } from "@/lib/db";
+import { INSTAGRAM_URL } from "@/lib/contact";
 import { ProductCard } from "@/components/ProductCard";
 import { Reveal } from "@/components/Reveal";
 import { Button } from "@/components/ui/button";
@@ -48,8 +51,16 @@ const reviews = [
 ];
 
 function Home() {
-  const bestsellers = products.filter((p) => p.bestseller).slice(0, 4);
+  const { data } = useQuery({
+    queryKey: ["products", "home"],
+    queryFn: () => fetchProducts({ activeOnly: true }),
+    staleTime: 60_000,
+  });
+  const products: Product[] = data ?? [];
+  const featuredList = products.filter((p) => p.featured);
+  const bestsellers = (featuredList.length ? featuredList : products).slice(0, 4);
   const trending = products.slice(0, 8);
+
 
   return (
     <div>
@@ -156,7 +167,7 @@ function Home() {
               >
                 <div className="aspect-[3/4] overflow-hidden bg-muted">
                   <img
-                    src={products[i * 3].images[0]}
+                    src={products[i * 3]?.images[0] ?? "/demo/placeholder-saree.jpg"}
                     alt={c.name}
                     loading="lazy"
                     className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
@@ -238,7 +249,7 @@ function Home() {
             subtitle="The latest additions to our handloom family"
           />
           <div className="mt-10 grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-4">
-            {products.slice(-4).map((p) => (
+            {(products.filter((p) => p.newArrival).length ? products.filter((p) => p.newArrival) : products.slice(-4)).slice(0, 4).map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}
           </div>
@@ -315,7 +326,7 @@ function Home() {
       {/* Instagram Gallery */}
       <section className="container-luxe py-16">
         <SectionHeading
-          eyebrow="@mssilks_dharmavaram"
+          eyebrow="@ms_silks.dharmavaram"
           title="Follow Our Journey"
           subtitle="Tag us to be featured on our page"
         />
@@ -323,11 +334,13 @@ function Home() {
           {products.slice(0, 6).map((p, i) => (
             <a
               key={p.id}
-              href="#"
+              href={INSTAGRAM_URL}
+              target="_blank"
+              rel="noreferrer"
               className="group relative aspect-square overflow-hidden rounded-lg bg-muted"
             >
               <img
-                src={p.images[i % 3]}
+                src={p.images[i % p.images.length]}
                 alt="Instagram post"
                 loading="lazy"
                 className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"

@@ -191,3 +191,111 @@ export async function isCurrentUserAdmin() {
   if (error) return false;
   return Boolean(data);
 }
+
+/* ---------------- Orders ---------------- */
+
+export type AdminOrder = {
+  id: string;
+  order_number: string;
+  customer_name: string;
+  customer_phone: string;
+  city: string;
+  state: string;
+  address_line: string;
+  pincode: string;
+  total: number;
+  order_status: string;
+  payment_status: string;
+  created_at: string;
+  order_items: { id: string; product_name: string; quantity: number; line_total: number }[];
+  payments: {
+    id: string;
+    utr_number: string | null;
+    payer_name: string | null;
+    payer_phone: string | null;
+    payment_screenshot_url: string | null;
+    payment_status: string;
+    amount: number;
+  }[];
+};
+
+export async function fetchAdminOrders(): Promise<AdminOrder[]> {
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*, order_items(id, product_name, quantity, line_total), payments(*)")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as unknown as AdminOrder[];
+}
+
+export async function updateOrderStatus(id: string, order_status: string) {
+  const { error } = await supabase.from("orders").update({ order_status }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function setPaymentVerdict(
+  orderId: string,
+  paymentId: string,
+  verdict: "confirmed" | "rejected",
+  adminNote?: string,
+) {
+  const { data: userData } = await supabase.auth.getUser();
+  const { error } = await supabase
+    .from("payments")
+    .update({
+      payment_status: verdict,
+      verified_by: userData.user?.id ?? null,
+      verified_at: new Date().toISOString(),
+      admin_note: adminNote ?? null,
+    })
+    .eq("id", paymentId);
+  if (error) throw error;
+  const { error: oErr } = await supabase
+    .from("orders")
+    .update({
+      payment_status: verdict,
+      order_status: verdict === "confirmed" ? "confirmed" : "cancelled",
+    })
+    .eq("id", orderId);
+  if (oErr) throw oErr;
+}
+
+/* ---------------- Admin users ---------------- */
+
+export async function fetchAdmins() {
+  const { data, error } = await supabase
+    .from("user_roles")
+    .select("id, user_id, role, created_at")
+    .eq("role", "admin");
+  if (error) throw error;
+  const ids = (data ?? []).map((r) => r.user_id);
+  if (!ids.length) return [];
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, email, full_name")
+    .in("id", ids);
+  return (data ?? []).map((r) => ({
+    ...r,
+    email: profiles?.find((p) => p.id === r.user_id)?.email ?? "—",
+    full_name: profiles?.find((p) => p.id === r.user_id)?.full_name ?? "",
+  }));
+}
+
+export async function addAdminByEmail(email: string) {
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("email", email.trim().toLowerCase())
+    .maybeSingle();
+  if (error) throw error;
+  if (!profile) throw new Error("No account found with that email. Ask them to sign up first.");
+  const { error: insErr } = await supabase
+    .from("user_roles")
+    .insert({ user_id: profile.id, role: "admin" });
+  if (insErr) throw insErr;
+}
+
+export async function removeAdmin(roleRowId: string) {
+  const { error } = await supabase.from("user_roles").delete().eq("id", roleRowId);
+  if (error) throw error;
+}
