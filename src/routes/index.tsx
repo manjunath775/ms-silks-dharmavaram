@@ -16,6 +16,7 @@ import festivalBanner from "@/assets/festival-banner.jpg";
 import { useQuery } from "@tanstack/react-query";
 import { categories } from "@/lib/products";
 import { fetchProducts, type Product } from "@/lib/db";
+import { INSTAGRAM_URL } from "@/lib/contact";
 import { ProductCard } from "@/components/ProductCard";
 import { Reveal } from "@/components/Reveal";
 import { Button } from "@/components/ui/button";
@@ -248,7 +249,7 @@ function Home() {
             subtitle="The latest additions to our handloom family"
           />
           <div className="mt-10 grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-4">
-            {products.filter((p) => p.newArrival).slice(0, 4).map((p) => (
+            {(products.filter((p) => p.newArrival).length ? products.filter((p) => p.newArrival) : products.slice(-4)).slice(0, 4).map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}
           </div>
@@ -325,7 +326,7 @@ function Home() {
       {/* Instagram Gallery */}
       <section className="container-luxe py-16">
         <SectionHeading
-          eyebrow="@mssilks_dharmavaram"
+          eyebrow="@ms_silks.dharmavaram"
           title="Follow Our Journey"
           subtitle="Tag us to be featured on our page"
         />
@@ -333,7 +334,9 @@ function Home() {
           {products.slice(0, 6).map((p, i) => (
             <a
               key={p.id}
-              href="#"
+              href={INSTAGRAM_URL}
+              target="_blank"
+              rel="noreferrer"
               className="group relative aspect-square overflow-hidden rounded-lg bg-muted"
             >
               <img
