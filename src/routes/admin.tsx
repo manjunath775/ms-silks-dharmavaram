@@ -1,467 +1,806 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { motion } from "motion/react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  BarChart3,
   Boxes,
   IndianRupee,
+  ImagePlus,
+  Loader2,
   LayoutDashboard,
-  Package,
   Pencil,
   Plus,
+  ShieldCheck,
   ShoppingCart,
-  Tag,
+  Settings as SettingsIcon,
+  Star,
   Trash2,
-  TrendingUp,
-  Users,
+  X,
 } from "lucide-react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { products as seed, formatINR, type Product } from "@/lib/products";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { formatINR, fetchCategories, fetchSettings, ORDER_STATUSES, ORDER_STATUS_LABEL, type Product } from "@/lib/db";
+import {
+  addAdminByEmail,
+  deleteProduct,
+  fetchAdminOrders,
+  fetchAdmins,
+  fetchAdminProducts,
+  isCurrentUserAdmin,
+  removeAdmin,
+  saveProduct,
+  saveStoreSettings,
+  setPaymentVerdict,
+  setProductAvailability,
+  setProductFeatured,
+  updateOrderStatus,
+  uploadProductImage,
+  validateImage,
+  type ProductImageInput,
+} from "@/lib/admin";
 
 export const Route = createFileRoute("/admin")({
-  head: () => ({ meta: [{ title: "Admin — MS Silks Dharmavaram" }, { name: "robots", content: "noindex" }] }),
+  ssr: false,
+  head: () => ({
+    meta: [
+      { title: "Admin Portal — MS Silks Dharmavaram" },
+      { name: "description", content: "Manage sarees, orders, payments and store settings for MS Silks Dharmavaram." },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: Admin,
 });
 
-const salesData = [
-  { m: "Jan", sales: 240000 },
-  { m: "Feb", sales: 310000 },
-  { m: "Mar", sales: 280000 },
-  { m: "Apr", sales: 390000 },
-  { m: "May", sales: 460000 },
-  { m: "Jun", sales: 520000 },
-  { m: "Jul", sales: 610000 },
-];
-
-const catData = [
-  { c: "Bridal", v: 42 },
-  { c: "Festival", v: 33 },
-  { c: "Designer", v: 25 },
-];
-
-const navItems = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "products", label: "Products", icon: Package },
+const TABS = [
+  { id: "overview", label: "Overview", icon: LayoutDashboard },
+  { id: "products", label: "Products", icon: Boxes },
   { id: "orders", label: "Orders", icon: ShoppingCart },
-  { id: "customers", label: "Customers", icon: Users },
-  { id: "coupons", label: "Coupons", icon: Tag },
-  { id: "inventory", label: "Inventory", icon: Boxes },
-  { id: "reports", label: "Reports", icon: BarChart3 },
+  { id: "settings", label: "Store Settings", icon: SettingsIcon },
+  { id: "admins", label: "Admins", icon: ShieldCheck },
 ] as const;
 
 function Admin() {
-  const [authed, setAuthed] = useState(false);
-  const [tab, setTab] = useState<(typeof navItems)[number]["id"]>("dashboard");
+  const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("overview");
+  const { data: allowed, isLoading } = useQuery({
+    queryKey: ["is-admin"],
+    queryFn: isCurrentUserAdmin,
+    staleTime: 60_000,
+  });
 
-  if (!authed) return <AdminLogin onLogin={() => setAuthed(true)} />;
+  if (isLoading)
+    return (
+      <div className="container-luxe grid place-items-center py-24 text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+
+  if (!allowed)
+    return (
+      <div className="container-luxe py-24 text-center">
+        <h1 className="font-display text-3xl font-semibold">Admin access required</h1>
+        <p className="mt-3 text-muted-foreground">
+          Sign in with an authorised MS Silks admin account to manage the store.
+        </p>
+        <Button asChild variant="hero" className="mt-6">
+          <Link to="/auth">Sign in</Link>
+        </Button>
+      </div>
+    );
 
   return (
     <div className="container-luxe py-8">
-      <h1 className="font-display text-3xl font-semibold sm:text-4xl">Admin Dashboard</h1>
-      <div className="mt-6 grid gap-6 lg:grid-cols-[220px_1fr]">
-        <aside className="h-fit rounded-xl border border-border bg-card p-2 lg:sticky lg:top-40">
-          <nav className="flex gap-1 overflow-x-auto lg:flex-col">
-            {navItems.map((n) => (
-              <button
-                key={n.id}
-                onClick={() => setTab(n.id)}
-                className={cn(
-                  "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-colors",
-                  tab === n.id ? "bg-primary text-primary-foreground" : "hover:bg-accent",
-                )}
-              >
-                <n.icon className="h-4 w-4" /> {n.label}
-              </button>
-            ))}
-          </nav>
-        </aside>
+      <h1 className="font-display text-3xl font-semibold sm:text-4xl">Admin Portal</h1>
+      <p className="mt-1 text-sm text-muted-foreground">MS Silks Dharmavaram store management</p>
 
-        <div>
-          {tab === "dashboard" && <DashboardTab />}
-          {tab === "products" && <ProductsTab />}
-          {tab === "orders" && <OrdersTab />}
-          {tab === "customers" && <CustomersTab />}
-          {tab === "coupons" && <CouponsTab />}
-          {tab === "inventory" && <InventoryTab />}
-          {tab === "reports" && <ReportsTab />}
-        </div>
+      <div className="mt-6 flex gap-2 overflow-x-auto border-b border-border pb-2">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={cn(
+              "flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-sm transition-colors",
+              tab === t.id ? "bg-primary text-primary-foreground" : "hover:bg-accent",
+            )}
+          >
+            <t.icon className="h-4 w-4" /> {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-6">
+        {tab === "overview" && <Overview />}
+        {tab === "products" && <ProductsPanel />}
+        {tab === "orders" && <OrdersPanel />}
+        {tab === "settings" && <SettingsPanel />}
+        {tab === "admins" && <AdminsPanel />}
       </div>
     </div>
   );
 }
 
-function AdminLogin({ onLogin }: { onLogin: () => void }) {
+/* ------------------------- Overview ------------------------- */
+
+function Overview() {
+  const { data: products = [] } = useQuery({ queryKey: ["admin-products"], queryFn: fetchAdminProducts });
+  const { data: orders = [] } = useQuery({ queryKey: ["admin-orders"], queryFn: fetchAdminOrders });
+
+  const revenue = orders
+    .filter((o) => o.payment_status === "confirmed")
+    .reduce((s, o) => s + Number(o.total), 0);
+  const pending = orders.filter((o) => o.payment_status !== "confirmed").length;
+
+  const stats = [
+    { label: "Products", value: String(products.length), icon: Boxes },
+    { label: "Orders", value: String(orders.length), icon: ShoppingCart },
+    { label: "Confirmed Revenue", value: formatINR(revenue), icon: IndianRupee },
+    { label: "Awaiting Verification", value: String(pending), icon: ShieldCheck },
+  ];
+
   return (
-    <div className="container-luxe grid min-h-[70vh] place-items-center py-12">
-      <motion.form
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        onSubmit={(e) => {
-          e.preventDefault();
-          onLogin();
-          toast.success("Welcome, Admin");
-        }}
-        className="w-full max-w-sm rounded-2xl border border-border bg-card p-8 shadow-soft"
-      >
-        <div className="text-center">
-          <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-primary/10 text-primary">
-            <LayoutDashboard className="h-6 w-6" />
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {stats.map((s) => (
+        <div key={s.label} className="rounded-xl border border-border bg-card p-5 shadow-soft">
+          <div className="flex items-center justify-between">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">{s.label}</p>
+            <s.icon className="h-4 w-4 text-gold" />
           </div>
-          <h1 className="mt-4 font-display text-2xl font-semibold">Admin Login</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Secure access for store administrators</p>
+          <p className="mt-3 font-display text-2xl font-semibold">{s.value}</p>
         </div>
-        <div className="mt-6 space-y-4">
-          <div>
-            <Label className="mb-1.5 block text-sm">Email</Label>
-            <Input type="email" required defaultValue="admin@mssilks.in" />
-          </div>
-          <div>
-            <Label className="mb-1.5 block text-sm">Password</Label>
-            <Input type="password" required defaultValue="admin123" />
-          </div>
-          <Button type="submit" variant="hero" size="lg" className="w-full">
-            Sign In
-          </Button>
-        </div>
-      </motion.form>
+      ))}
     </div>
   );
 }
 
-function Stat({ icon: Icon, label, value, trend }: { icon: typeof Users; label: string; value: string; trend: string }) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <div className="flex items-center justify-between">
-        <div className="grid h-10 w-10 place-items-center rounded-full bg-primary/10 text-primary">
-          <Icon className="h-5 w-5" />
-        </div>
-        <span className="flex items-center gap-1 text-xs font-medium text-green-600">
-          <TrendingUp className="h-3.5 w-3.5" /> {trend}
-        </span>
-      </div>
-      <p className="mt-3 font-display text-2xl font-semibold">{value}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
-    </div>
-  );
-}
+/* ------------------------- Products ------------------------- */
 
-function DashboardTab() {
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat icon={IndianRupee} label="Total Revenue" value="₹28.1L" trend="+18%" />
-        <Stat icon={ShoppingCart} label="Orders" value="1,284" trend="+12%" />
-        <Stat icon={Users} label="Customers" value="3,042" trend="+9%" />
-        <Stat icon={Package} label="Products" value={String(seed.length)} trend="+4%" />
-      </div>
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="rounded-xl border border-border bg-card p-5 lg:col-span-2">
-          <h3 className="font-display text-lg font-semibold">Sales Overview</h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={salesData} margin={{ top: 16, right: 8, left: -8, bottom: 0 }}>
-              <defs>
-                <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-              <XAxis dataKey="m" stroke="var(--color-muted-foreground)" fontSize={12} />
-              <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickFormatter={(v) => `${v / 100000}L`} />
-              <Tooltip formatter={(v: number) => formatINR(v)} />
-              <Area type="monotone" dataKey="sales" stroke="var(--color-primary)" fill="url(#g)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-5">
-          <h3 className="font-display text-lg font-semibold">By Category</h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={catData} margin={{ top: 16, right: 8, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-              <XAxis dataKey="c" stroke="var(--color-muted-foreground)" fontSize={12} />
-              <YAxis stroke="var(--color-muted-foreground)" fontSize={12} />
-              <Tooltip />
-              <Bar dataKey="v" fill="var(--color-gold)" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-    </div>
-  );
-}
+type Draft = {
+  id?: string;
+  sku: string;
+  name: string;
+  description: string;
+  categoryId: string | null;
+  price: string;
+  mrp: string;
+  stock: string;
+  available: boolean;
+  featured: boolean;
+  newArrival: boolean;
+  images: ProductImageInput[];
+};
 
-function ProductsTab() {
-  const [list, setList] = useState<Product[]>(seed);
-  const [editing, setEditing] = useState<Product | null>(null);
+const emptyDraft = (): Draft => ({
+  sku: "",
+  name: "",
+  description: "",
+  categoryId: null,
+  price: "",
+  mrp: "",
+  stock: "1",
+  available: true,
+  featured: false,
+  newArrival: true,
+  images: [],
+});
+
+function ProductsPanel() {
+  const qc = useQueryClient();
+  const { data: products = [], isLoading } = useQuery({
+    queryKey: ["admin-products"],
+    queryFn: fetchAdminProducts,
+  });
+  const { data: categories = [] } = useQuery({
+    queryKey: ["categories", "all"],
+    queryFn: () => fetchCategories(false),
+  });
   const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<Draft>(emptyDraft());
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const remove = (id: string) => {
-    setList((l) => l.filter((p) => p.id !== id));
-    toast.success("Product deleted");
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["admin-products"] });
+    qc.invalidateQueries({ queryKey: ["products"] });
   };
 
+  const openNew = () => {
+    setDraft(emptyDraft());
+    setOpen(true);
+  };
+
+  const openEdit = (p: Product) => {
+    setDraft({
+      id: p.id,
+      sku: p.sku ?? "",
+      name: p.name,
+      description: p.description,
+      categoryId: p.categoryId,
+      price: String(p.offerPrice),
+      mrp: String(p.price),
+      stock: String(p.stock),
+      available: p.stock > 0,
+      featured: p.featured,
+      newArrival: p.newArrival,
+      images: p.imageRows.map((r) => ({
+        url: r.image_url,
+        path: r.storage_path,
+        isPrimary: r.is_primary,
+      })),
+    });
+    setOpen(true);
+  };
+
+  const onFiles = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setUploading(true);
+    try {
+      const next: ProductImageInput[] = [];
+      for (const file of Array.from(files)) {
+        const err = validateImage(file);
+        if (err) {
+          toast.error(err);
+          continue;
+        }
+        const up = await uploadProductImage(file);
+        next.push({ url: up.url, path: up.path, isPrimary: false });
+      }
+      setDraft((d) => {
+        const images = [...d.images, ...next];
+        if (!images.some((i) => i.isPrimary) && images.length) images[0].isPrimary = true;
+        return { ...d, images };
+      });
+      if (next.length) toast.success(`${next.length} image(s) uploaded`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!draft.name.trim()) throw new Error("Product name is required");
+      if (!draft.sku.trim()) throw new Error("SKU is required");
+      const price = Number(draft.price);
+      if (!price || price <= 0) throw new Error("Enter a valid selling price");
+      if (!draft.images.length) throw new Error("Add at least one product photo");
+      return saveProduct({
+        id: draft.id,
+        sku: draft.sku.trim(),
+        name: draft.name.trim(),
+        description: draft.description.trim(),
+        categoryId: draft.categoryId,
+        price,
+        mrp: Number(draft.mrp) || price,
+        available: draft.available,
+        featured: draft.featured,
+        newArrival: draft.newArrival,
+        stock: Number(draft.stock) || 1,
+        images: draft.images,
+      });
+    },
+    onSuccess: () => {
+      toast.success(draft.id ? "Product updated" : "Product added");
+      setOpen(false);
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save product"),
+  });
+
+  const del = useMutation({
+    mutationFn: deleteProduct,
+    onSuccess: () => {
+      toast.success("Product deleted");
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Delete failed"),
+  });
+
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
+    <div>
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-display text-lg font-semibold">Products ({list.length})</h3>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button variant="hero" onClick={() => setEditing(null)}>
-              <Plus className="h-4 w-4" /> Add Product
-            </Button>
-          </DialogTrigger>
-          <ProductDialog
-            product={editing}
-            onSave={(p) => {
-              if (editing) {
-                setList((l) => l.map((x) => (x.id === p.id ? p : x)));
-                toast.success("Product updated");
-              } else {
-                setList((l) => [{ ...p, id: `saree-${Date.now()}` }, ...l]);
-                toast.success("Product added");
-              }
-              setOpen(false);
-            }}
-          />
-        </Dialog>
+        <p className="text-sm text-muted-foreground">{products.length} products</p>
+        <Button variant="hero" onClick={openNew}>
+          <Plus className="h-4 w-4" /> Add Product
+        </Button>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-muted-foreground">
-              <th className="pb-2 font-medium">Product</th>
-              <th className="pb-2 font-medium">Category</th>
-              <th className="pb-2 font-medium">Price</th>
-              <th className="pb-2 font-medium">Stock</th>
-              <th className="pb-2 font-medium"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((p) => (
-              <tr key={p.id} className="border-b border-border/60">
-                <td className="py-3">
-                  <div className="flex items-center gap-3">
-                    <img src={p.images[0]} alt={p.name} className="h-12 w-10 rounded object-cover" />
-                    <span className="line-clamp-1 max-w-40 font-medium">{p.name}</span>
-                  </div>
-                </td>
-                <td>{p.category}</td>
-                <td>{formatINR(p.offerPrice)}</td>
-                <td>
-                  <span className={cn(p.stock === 0 ? "text-destructive" : "text-foreground")}>{p.stock}</span>
-                </td>
-                <td>
-                  <div className="flex justify-end gap-1">
+
+      {isLoading ? (
+        <div className="grid place-items-center py-16 text-muted-foreground">
+          <Loader2 className="h-6 w-6 animate-spin" />
+        </div>
+      ) : products.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border py-16 text-center text-muted-foreground">
+          No products yet. Add your first saree.
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+          <table className="w-full min-w-[720px] text-sm">
+            <thead className="border-b border-border text-left text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="p-3">Saree</th>
+                <th className="p-3">Price</th>
+                <th className="p-3">Stock</th>
+                <th className="p-3">In stock</th>
+                <th className="p-3">Featured</th>
+                <th className="p-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((p) => (
+                <tr key={p.id} className="border-b border-border/60 last:border-0">
+                  <td className="p-3">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={p.images[0]}
+                        alt={p.name}
+                        loading="lazy"
+                        className="h-12 w-10 rounded object-cover"
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">{p.sku ?? "—"}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="p-3">{formatINR(p.offerPrice)}</td>
+                  <td className="p-3">{p.stock}</td>
+                  <td className="p-3">
+                    <Switch
+                      checked={p.stock > 0}
+                      onCheckedChange={async (v) => {
+                        await setProductAvailability(p.id, v);
+                        invalidate();
+                      }}
+                    />
+                  </td>
+                  <td className="p-3">
+                    <button
+                      onClick={async () => {
+                        await setProductFeatured(p.id, !p.featured);
+                        invalidate();
+                      }}
+                      aria-label="Toggle featured"
+                    >
+                      <Star className={cn("h-5 w-5", p.featured ? "fill-gold text-gold" : "text-muted-foreground")} />
+                    </button>
+                  </td>
+                  <td className="p-3">
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(p)} aria-label="Edit">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Delete"
+                        onClick={() => {
+                          if (confirm(`Delete "${p.name}"? This cannot be undone.`)) del.mutate(p.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{draft.id ? "Edit Product" : "Add Product"}</DialogTitle>
+          </DialogHeader>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Product name">
+              <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+            </Field>
+            <Field label="SKU / Code">
+              <Input value={draft.sku} onChange={(e) => setDraft({ ...draft, sku: e.target.value })} />
+            </Field>
+            <Field label="Selling price (₹)">
+              <Input
+                inputMode="numeric"
+                value={draft.price}
+                onChange={(e) => setDraft({ ...draft, price: e.target.value })}
+              />
+            </Field>
+            <Field label="MRP (₹)">
+              <Input
+                inputMode="numeric"
+                value={draft.mrp}
+                onChange={(e) => setDraft({ ...draft, mrp: e.target.value })}
+              />
+            </Field>
+            <Field label="Stock quantity">
+              <Input
+                inputMode="numeric"
+                value={draft.stock}
+                onChange={(e) => setDraft({ ...draft, stock: e.target.value })}
+              />
+            </Field>
+            <Field label="Category">
+              <Select
+                value={draft.categoryId ?? "none"}
+                onValueChange={(v) => setDraft({ ...draft, categoryId: v === "none" ? null : v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Uncategorised</SelectItem>
+                  {categories.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <div className="sm:col-span-2">
+              <Field label="Description">
+                <Textarea
+                  rows={4}
+                  value={draft.description}
+                  onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                />
+              </Field>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-6 rounded-lg border border-border p-4">
+            <Toggle label="Available" checked={draft.available} onChange={(v) => setDraft({ ...draft, available: v })} />
+            <Toggle label="Featured" checked={draft.featured} onChange={(v) => setDraft({ ...draft, featured: v })} />
+            <Toggle label="New arrival" checked={draft.newArrival} onChange={(v) => setDraft({ ...draft, newArrival: v })} />
+          </div>
+
+          <div>
+            <Label className="mb-2 block text-sm">Photos</Label>
+            <div className="flex flex-wrap gap-3">
+              {draft.images.map((img, i) => (
+                <div key={img.url} className="relative h-24 w-20 overflow-hidden rounded-lg border border-border">
+                  <img src={img.url} alt="" className="h-full w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDraft((d) => ({ ...d, images: d.images.filter((_, x) => x !== i) }))
+                    }
+                    className="absolute right-0.5 top-0.5 grid h-5 w-5 place-items-center rounded-full bg-background/90"
+                    aria-label="Remove photo"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDraft((d) => ({
+                        ...d,
+                        images: d.images.map((x, xi) => ({ ...x, isPrimary: xi === i })),
+                      }))
+                    }
+                    className={cn(
+                      "absolute bottom-0 w-full py-0.5 text-[10px]",
+                      img.isPrimary ? "bg-gold text-gold-foreground" : "bg-background/80",
+                    )}
+                  >
+                    {img.isPrimary ? "Main" : "Set main"}
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="grid h-24 w-20 place-items-center rounded-lg border border-dashed border-border text-muted-foreground hover:border-gold hover:text-primary"
+              >
+                {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImagePlus className="h-5 w-5" />}
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                hidden
+                onChange={(e) => onFiles(e.target.files)}
+              />
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">JPG, PNG or WEBP · up to 8 MB each</p>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="hero" onClick={() => save.mutate()} disabled={save.isPending || uploading}>
+              {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Save Product
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+/* ------------------------- Orders ------------------------- */
+
+function OrdersPanel() {
+  const qc = useQueryClient();
+  const { data: orders = [], isLoading } = useQuery({
+    queryKey: ["admin-orders"],
+    queryFn: fetchAdminOrders,
+  });
+  const refresh = () => qc.invalidateQueries({ queryKey: ["admin-orders"] });
+
+  if (isLoading)
+    return (
+      <div className="grid place-items-center py-16 text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+
+  if (!orders.length)
+    return (
+      <div className="rounded-xl border border-dashed border-border py-16 text-center text-muted-foreground">
+        No orders yet.
+      </div>
+    );
+
+  return (
+    <div className="space-y-4">
+      {orders.map((o) => {
+        const payment = o.payments?.[0];
+        return (
+          <div key={o.id} className="rounded-xl border border-border bg-card p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="font-semibold">#{o.order_number}</p>
+                <p className="text-xs text-muted-foreground">
+                  {new Date(o.created_at).toLocaleString("en-IN")} · {o.customer_name} · {o.customer_phone}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {o.address_line}, {o.city}, {o.state} {o.pincode}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="font-display text-lg font-semibold text-primary">{formatINR(Number(o.total))}</p>
+                <p className="text-xs capitalize text-muted-foreground">Payment: {o.payment_status}</p>
+              </div>
+            </div>
+
+            <ul className="mt-3 space-y-1 border-t border-border pt-3 text-sm">
+              {o.order_items?.map((it) => (
+                <li key={it.id} className="flex justify-between">
+                  <span>
+                    {it.product_name} × {it.quantity}
+                  </span>
+                  <span>{formatINR(Number(it.line_total))}</span>
+                </li>
+              ))}
+            </ul>
+
+            {payment && (
+              <div className="mt-3 rounded-lg bg-secondary/50 p-3 text-sm">
+                <p className="font-medium">UPI payment details</p>
+                <p className="text-xs text-muted-foreground">
+                  UTR: {payment.utr_number || "—"} · Payer: {payment.payer_name || "—"} ·{" "}
+                  {payment.payer_phone || "—"}
+                </p>
+                {payment.payment_screenshot_url && (
+                  <a
+                    href={payment.payment_screenshot_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-primary hover:underline"
+                  >
+                    View payment screenshot
+                  </a>
+                )}
+                {payment.payment_status !== "confirmed" && (
+                  <div className="mt-3 flex gap-2">
                     <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setEditing(p);
-                        setOpen(true);
+                      size="sm"
+                      variant="hero"
+                      onClick={async () => {
+                        await setPaymentVerdict(o.id, payment.id, "confirmed");
+                        toast.success("Payment confirmed");
+                        refresh();
                       }}
                     >
-                      <Pencil className="h-4 w-4" />
+                      Confirm payment
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => remove(p.id)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        await setPaymentVerdict(o.id, payment.id, "rejected");
+                        toast.success("Payment rejected");
+                        refresh();
+                      }}
+                    >
+                      Reject
                     </Button>
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function ProductDialog({ product, onSave }: { product: Product | null; onSave: (p: Product) => void }) {
-  const [name, setName] = useState(product?.name ?? "");
-  const [category, setCategory] = useState(product?.category ?? "Designer Sarees");
-  const [price, setPrice] = useState(product?.price ?? 0);
-  const [offer, setOffer] = useState(product?.offerPrice ?? 0);
-  const [stock, setStock] = useState(product?.stock ?? 0);
-
-  return (
-    <DialogContent>
-      <DialogHeader>
-        <DialogTitle>{product ? "Edit Product" : "Add Product"}</DialogTitle>
-      </DialogHeader>
-      <div className="space-y-4">
-        <div>
-          <Label className="mb-1.5 block text-sm">Name</Label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <div>
-          <Label className="mb-1.5 block text-sm">Category</Label>
-          <Input value={category} onChange={(e) => setCategory(e.target.value)} />
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          <div>
-            <Label className="mb-1.5 block text-sm">Price</Label>
-            <Input type="number" value={price} onChange={(e) => setPrice(Number(e.target.value))} />
-          </div>
-          <div>
-            <Label className="mb-1.5 block text-sm">Offer</Label>
-            <Input type="number" value={offer} onChange={(e) => setOffer(Number(e.target.value))} />
-          </div>
-          <div>
-            <Label className="mb-1.5 block text-sm">Stock</Label>
-            <Input type="number" value={stock} onChange={(e) => setStock(Number(e.target.value))} />
-          </div>
-        </div>
-        <div className="rounded-lg border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
-          Drag & drop images here (multiple uploads supported)
-        </div>
-      </div>
-      <DialogFooter>
-        <Button
-          variant="hero"
-          onClick={() =>
-            onSave({
-              ...(product ?? (seed[0] as Product)),
-              id: product?.id ?? "",
-              name,
-              category,
-              price,
-              offerPrice: offer,
-              stock,
-            })
-          }
-        >
-          Save Product
-        </Button>
-      </DialogFooter>
-    </DialogContent>
-  );
-}
-
-function OrdersTab() {
-  const orders = [
-    { id: "MS10234", customer: "Aarohi Sharma", total: 18999, status: "Delivered" },
-    { id: "MS10233", customer: "Ravi Kumar", total: 14499, status: "Shipped" },
-    { id: "MS10232", customer: "Divya Rao", total: 21999, status: "Processing" },
-    { id: "MS10231", customer: "Nithya S.", total: 9999, status: "Pending" },
-  ];
-  return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <h3 className="mb-4 font-display text-lg font-semibold">Recent Orders</h3>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-muted-foreground">
-              <th className="pb-2 font-medium">Order</th>
-              <th className="pb-2 font-medium">Customer</th>
-              <th className="pb-2 font-medium">Total</th>
-              <th className="pb-2 font-medium">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.map((o) => (
-              <tr key={o.id} className="border-b border-border/60">
-                <td className="py-3 font-medium">#{o.id}</td>
-                <td>{o.customer}</td>
-                <td>{formatINR(o.total)}</td>
-                <td>
-                  <span className="rounded-full bg-secondary px-3 py-1 text-xs">{o.status}</span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function CustomersTab() {
-  const customers = [
-    { name: "Aarohi Sharma", email: "aarohi@example.com", orders: 6, spent: 84000 },
-    { name: "Ravi Kumar", email: "ravi@example.com", orders: 3, spent: 42000 },
-    { name: "Divya Rao", email: "divya@example.com", orders: 8, spent: 121000 },
-  ];
-  return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <h3 className="mb-4 font-display text-lg font-semibold">Customers</h3>
-      <div className="space-y-3">
-        {customers.map((c) => (
-          <div key={c.email} className="flex items-center justify-between rounded-lg border border-border p-3">
-            <div className="flex items-center gap-3">
-              <div className="grid h-10 w-10 place-items-center rounded-full bg-primary/10 font-semibold text-primary">
-                {c.name[0]}
+                )}
               </div>
-              <div>
-                <p className="text-sm font-medium">{c.name}</p>
-                <p className="text-xs text-muted-foreground">{c.email}</p>
-              </div>
-            </div>
-            <div className="text-right text-sm">
-              <p className="font-medium">{formatINR(c.spent)}</p>
-              <p className="text-xs text-muted-foreground">{c.orders} orders</p>
+            )}
+
+            <div className="mt-4 flex items-center gap-3">
+              <Label className="text-xs text-muted-foreground">Order status</Label>
+              <Select
+                value={o.order_status}
+                onValueChange={async (v) => {
+                  await updateOrderStatus(o.id, v);
+                  toast.success("Order updated");
+                  refresh();
+                }}
+              >
+                <SelectTrigger className="w-64">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ORDER_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {ORDER_STATUS_LABEL[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
-        ))}
-      </div>
+        );
+      })}
     </div>
   );
 }
 
-function CouponsTab() {
-  const [coupons, setCoupons] = useState([
-    { code: "SILK10", pct: 10, active: true },
-    { code: "FESTIVE20", pct: 20, active: true },
-    { code: "WELCOME15", pct: 15, active: false },
-  ]);
+/* ------------------------- Settings ------------------------- */
+
+function SettingsPanel() {
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ["store-settings"], queryFn: fetchSettings });
+  const [form, setForm] = useState({
+    store_name: "",
+    phone: "",
+    whatsapp_number: "",
+    instagram_url: "",
+    address: "",
+    announcement: "",
+  });
+
+  useEffect(() => {
+    if (!data) return;
+    setForm({
+      store_name: data.store_name ?? "",
+      phone: data.phone ?? "",
+      whatsapp_number: data.whatsapp_number ?? "",
+      instagram_url: data.instagram_url ?? "",
+      address: data.address ?? "",
+      announcement: data.announcement ?? "",
+    });
+  }, [data]);
+
+  const save = useMutation({
+    mutationFn: () => saveStoreSettings(form),
+    onSuccess: () => {
+      toast.success("Store settings saved");
+      qc.invalidateQueries({ queryKey: ["store-settings"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save"),
+  });
+
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-display text-lg font-semibold">Coupons</h3>
-        <Button variant="hero" onClick={() => toast.success("New coupon created")}>
-          <Plus className="h-4 w-4" /> New Coupon
-        </Button>
+    <div className="max-w-2xl rounded-xl border border-border bg-card p-6">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Store name">
+          <Input value={form.store_name} onChange={(e) => setForm({ ...form, store_name: e.target.value })} />
+        </Field>
+        <Field label="Phone">
+          <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+        </Field>
+        <Field label="WhatsApp number">
+          <Input
+            value={form.whatsapp_number}
+            onChange={(e) => setForm({ ...form, whatsapp_number: e.target.value })}
+          />
+        </Field>
+        <Field label="Instagram URL">
+          <Input value={form.instagram_url} onChange={(e) => setForm({ ...form, instagram_url: e.target.value })} />
+        </Field>
+        <div className="sm:col-span-2">
+          <Field label="Store address">
+            <Textarea rows={2} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+          </Field>
+        </div>
+        <div className="sm:col-span-2">
+          <Field label="Announcement bar text">
+            <Input value={form.announcement} onChange={(e) => setForm({ ...form, announcement: e.target.value })} />
+          </Field>
+        </div>
       </div>
-      <div className="space-y-3">
-        {coupons.map((c, i) => (
-          <div key={c.code} className="flex items-center justify-between rounded-lg border border-border p-3">
-            <div className="flex items-center gap-3">
-              <Tag className="h-4 w-4 text-gold" />
-              <div>
-                <p className="font-mono text-sm font-semibold">{c.code}</p>
-                <p className="text-xs text-muted-foreground">{c.pct}% off</p>
-              </div>
+      <Button variant="hero" className="mt-6" onClick={() => save.mutate()} disabled={save.isPending}>
+        {save.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Save Settings
+      </Button>
+    </div>
+  );
+}
+
+/* ------------------------- Admins ------------------------- */
+
+function AdminsPanel() {
+  const qc = useQueryClient();
+  const { data: admins = [] } = useQuery({ queryKey: ["admins"], queryFn: fetchAdmins });
+  const [email, setEmail] = useState("");
+
+  const add = useMutation({
+    mutationFn: () => addAdminByEmail(email),
+    onSuccess: () => {
+      toast.success("Admin added");
+      setEmail("");
+      qc.invalidateQueries({ queryKey: ["admins"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not add admin"),
+  });
+
+  return (
+    <div className="max-w-2xl space-y-6">
+      <div className="rounded-xl border border-border bg-card p-6">
+        <Label className="mb-2 block text-sm">Add an admin by account email</Label>
+        <div className="flex gap-2">
+          <Input
+            type="email"
+            placeholder="person@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <Button variant="hero" onClick={() => add.mutate()} disabled={!email || add.isPending}>
+            {add.isPending && <Loader2 className="h-4 w-4 animate-spin" />} Add
+          </Button>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          The person must already have an MS Silks account.
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card">
+        {admins.map((a) => (
+          <div key={a.id} className="flex items-center justify-between border-b border-border/60 p-4 last:border-0">
+            <div>
+              <p className="text-sm font-medium">{a.full_name || a.email}</p>
+              <p className="text-xs text-muted-foreground">{a.email}</p>
             </div>
             <Button
-              variant={c.active ? "gold" : "outline"}
-              size="sm"
-              onClick={() =>
-                setCoupons((cs) => cs.map((x, j) => (i === j ? { ...x, active: !x.active } : x)))
-              }
+              variant="ghost"
+              size="icon"
+              aria-label="Remove admin"
+              onClick={async () => {
+                if (!confirm(`Remove admin access for ${a.email}?`)) return;
+                await removeAdmin(a.id);
+                toast.success("Admin removed");
+                qc.invalidateQueries({ queryKey: ["admins"] });
+              }}
             >
-              {c.active ? "Active" : "Inactive"}
+              <Trash2 className="h-4 w-4 text-destructive" />
             </Button>
           </div>
         ))}
@@ -470,42 +809,30 @@ function CouponsTab() {
   );
 }
 
-function InventoryTab() {
+/* ------------------------- Small bits ------------------------- */
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <h3 className="mb-4 font-display text-lg font-semibold">Inventory Alerts</h3>
-      <div className="space-y-3">
-        {seed
-          .filter((p) => p.stock <= 3)
-          .map((p) => (
-            <div key={p.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-              <div className="flex items-center gap-3">
-                <img src={p.images[0]} alt={p.name} className="h-11 w-9 rounded object-cover" />
-                <p className="line-clamp-1 max-w-52 text-sm font-medium">{p.name}</p>
-              </div>
-              <span className={cn("text-sm font-medium", p.stock === 0 ? "text-destructive" : "text-gold-foreground")}>
-                {p.stock === 0 ? "Out of stock" : `${p.stock} left`}
-              </span>
-            </div>
-          ))}
-      </div>
+    <div>
+      <Label className="mb-1.5 block text-sm text-muted-foreground">{label}</Label>
+      {children}
     </div>
   );
 }
 
-function ReportsTab() {
+function Toggle({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <h3 className="mb-4 font-display text-lg font-semibold">Sales Report</h3>
-      <ResponsiveContainer width="100%" height={320}>
-        <BarChart data={salesData} margin={{ top: 16, right: 8, left: 8, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-          <XAxis dataKey="m" stroke="var(--color-muted-foreground)" fontSize={12} />
-          <YAxis stroke="var(--color-muted-foreground)" fontSize={12} tickFormatter={(v) => `${v / 100000}L`} />
-          <Tooltip formatter={(v: number) => formatINR(v)} />
-          <Bar dataKey="sales" fill="var(--color-primary)" radius={[6, 6, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
+    <label className="flex items-center gap-2 text-sm">
+      <Switch checked={checked} onCheckedChange={onChange} />
+      {label}
+    </label>
   );
 }
