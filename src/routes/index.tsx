@@ -166,7 +166,7 @@ function Home() {
               >
                 <div className="aspect-[3/4] overflow-hidden bg-muted">
                   <img
-                    src={products[i * 3].images[0]}
+                    src={products[i * 3]?.images[0] ?? "/demo/placeholder-saree.jpg"}
                     alt={c.name}
                     loading="lazy"
                     className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
@@ -248,7 +248,7 @@ function Home() {
             subtitle="The latest additions to our handloom family"
           />
           <div className="mt-10 grid grid-cols-2 gap-4 md:gap-5 lg:grid-cols-4">
-            {products.slice(-4).map((p) => (
+            {products.filter((p) => p.newArrival).slice(0, 4).map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}
           </div>
@@ -337,7 +337,7 @@ function Home() {
               className="group relative aspect-square overflow-hidden rounded-lg bg-muted"
             >
               <img
-                src={p.images[i % 3]}
+                src={p.images[i % p.images.length]}
                 alt="Instagram post"
                 loading="lazy"
                 className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
