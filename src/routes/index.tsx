@@ -13,7 +13,9 @@ import {
 import heroSaree from "@/assets/hero-saree.jpg";
 import bridalBanner from "@/assets/bridal-banner.jpg";
 import festivalBanner from "@/assets/festival-banner.jpg";
-import { products, categories } from "@/lib/products";
+import { useQuery } from "@tanstack/react-query";
+import { categories } from "@/lib/products";
+import { fetchProducts, type Product } from "@/lib/db";
 import { ProductCard } from "@/components/ProductCard";
 import { Reveal } from "@/components/Reveal";
 import { Button } from "@/components/ui/button";
