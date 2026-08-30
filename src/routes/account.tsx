@@ -11,7 +11,8 @@ import {
   User,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { getProduct, formatINR } from "@/lib/products";
+import { useQuery } from "@tanstack/react-query";
+import { fetchProducts, formatINR } from "@/lib/db";
 import { ProductCard } from "@/components/ProductCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,7 +42,12 @@ const mockOrders = [
 function Account() {
   const [tab, setTab] = useState<(typeof tabs)[number]["id"]>("profile");
   const { wishlist } = useStore();
-  const wishedProducts = wishlist.map(getProduct).filter(Boolean);
+  const { data: allProducts } = useQuery({
+    queryKey: ["products", "wishlist-source"],
+    queryFn: () => fetchProducts({ activeOnly: true }),
+    staleTime: 60_000,
+  });
+  const wishedProducts = (allProducts ?? []).filter((p) => wishlist.includes(p.id));
 
   return (
     <div className="container-luxe py-8">
@@ -144,7 +150,7 @@ function Account() {
               ) : (
                 <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
                   {wishedProducts.map((p) => (
-                    <ProductCard key={p!.id} product={p!} />
+                    <ProductCard key={p.id} product={p} />
                   ))}
                 </div>
               )}
