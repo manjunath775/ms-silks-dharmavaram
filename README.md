@@ -406,13 +406,10 @@ Technology
 
 Generate production-quality code with an elegant UI, smooth animations, secure authentication, optimized performance, and scalable architecture. The final website should feel like a premium shopping experience comparable to Amazon, Myntra, or Ajio, specifically tailored for a luxury silk saree brand.
 
-This project was built with [Lovable](https://lovable.dev).
-
-**Live app**: https://ms-silks-dharmavaram.lovable.app
+This project was built with lovable and few other Ai applications 
 
 ## Build with Lovable
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/7f300d15-ccc8-4eb1-ba5e-8a28881f4811).
 
 - **Ship faster**: describe what you want to build and Lovable handles the code.
 - **Stay in sync**: every change made in Lovable is committed straight to this repository.
